@@ -15,12 +15,9 @@ router.post('/', (req, res, next) => {
   const missingField = requiredFields.find(field => !(field in req.body));
 
   if (missingField) {
-    return res.status(422).json({
-      code: 422,
-      reason: 'ValidationError',
-      message: 'Missing Field',
-      location: missingField
-    });
+    const err = new Error('Missing field in body');
+    err.status = 422;
+    return next(err);
   }
 
   const stringFields = ['username', 'password', 'fullname'];
@@ -29,11 +26,52 @@ router.post('/', (req, res, next) => {
   });
 
   if (nonStringField) {
+    const err = new Error('Incorrect field type: expected string');
+    err.status = 422;
+    return next(err);
+  }
+
+  const explicitlyTrimmedFields = ['username', 'password'];
+  const nonTrimmedField = explicitlyTrimmedFields.find(field => {
+    req.body[field].trim() !== req.body[field];
+  });
+
+  if (nonTrimmedField) {
+    const err = new Error('Cannot start or end with whitespace');
+    err.status = 422;
+    return next(err);
+  }
+
+  const sizedFields = {
+    username: {
+      min: 2
+    },
+    password: {
+      min: 8,
+      max: 72
+    }
+  };
+  const tooSmallField = Object.keys(sizedFields).find(
+    field =>
+      'min' in sizedFields[field] &&
+            req.body[field].trim().length < sizedFields[field].min
+  );
+  const tooLargeField = Object.keys(sizedFields).find(
+    field =>
+      'max' in sizedFields[field] &&
+            req.body[field].trim().length > sizedFields[field].max
+  );
+
+  if (tooSmallField || tooLargeField) {
     return res.status(422).json({
       code: 422,
       reason: 'ValidationError',
-      message: 'Incorrect field type: expected string',
-      location: nonStringField
+      message: tooSmallField
+        ? `Must be at least ${sizedFields[tooSmallField]
+          .min} characters long`
+        : `Must be at most ${sizedFields[tooLargeField]
+          .max} characters long`,
+      location: tooSmallField || tooLargeField
     });
   }
 
