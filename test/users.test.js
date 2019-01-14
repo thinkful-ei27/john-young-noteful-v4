@@ -73,4 +73,51 @@ describe('Noteful app - Users', function() {
     });
   });
 
+  describe('POST /api/login', function() {
+    it('should return user info if successfully in database', function() {
+      const newUser = {
+        username: 'aNewUser',
+        fullname: 'Johnny Fullname',
+        password: 'password'
+      };
+      let body;
+      
+      return chai.request(app)
+        .post('/api/users')
+        .send(newUser)
+        .then(function(res) {
+          return chai.request(app)
+            .post('/api/login')
+            .send(newUser);
+        })
+        .then((res) => {
+          body = res.body;
+          let { username, fullname } = body;
+          expect(res).to.have.status(200);
+          expect(body).to.have.all.keys('username', 'fullname', 'id');
+          expect(username).to.equal(newUser.username);
+          expect(fullname).to.equal(newUser.fullname);
+        });
+    });
+
+    it('should return AuthenticationError if wrong username or password', function() {
+      const login = {
+        username: 'johnnysalt',
+        password: 'aclearlywrongpassword'
+      };
+      let body;
+
+      return chai.request(app)
+        .post('/api/login')
+        .send(login)
+        .then(function(res) {
+          body = res.body;
+          let { name, message } = body;
+          expect(res).to.have.status(401);
+          expect(name).to.equal('AuthenticationError');
+          expect(message).to.equal('Unauthorized');
+        });
+    });
+  });
+
 });
