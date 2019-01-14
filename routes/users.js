@@ -10,17 +10,37 @@ const User = require('../models/user');
 /* ========== POST USERS ========== */
 router.post('/', (req, res, next) => {
   const {fullname, username, password} = req.body;
-  const newUser = req.body;
+  
+  const requiredFields = ['username', 'password'];
+  const missingField = requiredFields.find(field => !(field in req.body));
 
-  if (!username) {
-    const err = new Error('You must supply a username');
-    err.status = 400;
-    return next(err);
+  if (missingField) {
+    return res.status(422).json({
+      code: 422,
+      reason: 'ValidationError',
+      message: 'Missing Field',
+      location: missingField
+    });
+  }
+
+  const stringFields = ['username', 'password', 'fullname'];
+  const nonStringField = stringFields.find(field => {
+    field in req.body && typeof req.body[field] !== 'string';
+  });
+
+  if (nonStringField) {
+    return res.status(422).json({
+      code: 422,
+      reason: 'ValidationError',
+      message: 'Incorrect field type: expected string',
+      location: nonStringField
+    });
   }
 
   User
     .hashPassword(password)
     .then(digest => {
+      console.log(digest);
       const newUser = {
         username,
         password: digest,
