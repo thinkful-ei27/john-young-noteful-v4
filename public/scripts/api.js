@@ -1,4 +1,4 @@
-/* global $ */
+/* global $, store */
 'use strict';
 
 const api = (function () {
@@ -7,6 +7,7 @@ const api = (function () {
       type: 'GET',
       url: path,
       dataType: 'json',
+      headers: { 'Authorization': `Bearer ${store.authToken}`},
       data: query
     });
   };
@@ -14,6 +15,7 @@ const api = (function () {
     return $.ajax({
       type: 'GET',
       dataType: 'json',
+      headers: { 'Authorization': `Bearer ${store.authToken}`},
       url: path
     });
   };
@@ -23,6 +25,7 @@ const api = (function () {
       url: path,
       contentType: 'application/json',
       dataType: 'json',
+      headers: { 'Authorization': `Bearer ${store.authToken}`},
       data: JSON.stringify(obj)
     });
   };
@@ -33,6 +36,7 @@ const api = (function () {
       contentType: 'application/json',
       dataType: 'json',
       processData: false,
+      headers: { 'Authorization': `Bearer ${store.authToken}`},
       data: JSON.stringify(obj)
     });
   };
@@ -40,6 +44,7 @@ const api = (function () {
     return $.ajax({
       type: 'DELETE',
       dataType: 'json',
+      headers: { 'Authorization': `Bearer ${store.authToken}`},
       url: path
     });
   };
