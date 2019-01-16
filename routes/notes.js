@@ -4,6 +4,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const Note = require('../models/note');
+const Folder = require('../models/folder');
+const Tag = require('../models/tag');
 
 const router = express.Router();
 
@@ -54,12 +56,13 @@ router.get('/:id', (req, res, next) => {
     err.status = 400;
     return next(err);
   }
+  const filter = {$and: [{_id: id}, {userId}]};
 
-  Note.findById({_id: id, userId})
+  Note.find(filter)
     .populate('tags')
     .then(result => {
       if (result) {
-        res.json(result);
+        res.json(result[0]);
       } else {
         next();
       }
@@ -101,7 +104,24 @@ router.post('/', (req, res, next) => {
     delete newNote.folderId;
   }
 
-  Note.create(newNote)
+  const filterFolders = {$and: [{_id: folderId}, {userId}]};
+  const filterTags = {$and: [{_id: { $in: [...tags]}}, {userId}]};
+
+  // run a Promise.all([]) to verify owners of folder and tags
+  return Promise.all([
+    Folder.find(filterFolders),
+    Tag.find(filterTags)
+  ])
+    .then(([folders, returnTags]) => {
+      // console.log(`Folders are ${folders}, Tags are ${returnTags} but length is ${tags.length}`);
+      // We test if folders returns a folder, and returned tags is the same length as input tags
+      if (folders.length !== 1 || returnTags.length !== tags.length) {
+        const err = new Error('We could not find the specified folder or tags'); 
+        err.status = 400;
+        return next(err);
+      }
+      return Note.create(newNote);
+    })
     .then(result => {
       res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
     })
@@ -157,7 +177,23 @@ router.put('/:id', (req, res, next) => {
     toUpdate.$unset = {folderId : 1};
   }
 
-  Note.findOneAndUpdate({$and: [{_id: id}, {userId}]}, toUpdate, { new: true })
+  const filterFolders = {$and: [{_id: toUpdate.folderId}, {userId}]};
+  const filterTags = {$and: [{_id: { $in: [...toUpdate.tags]}}, {userId}]};
+
+  return Promise.all([
+    Folder.find(filterFolders),
+    Tag.find(filterTags)
+  ])
+    .then(([folders, returnTags]) => {
+      // console.log(`Folders are ${folders}, Tags are ${returnTags} but length is ${tags.length}`);
+      // We test if folders returns a folder, and returned tags is the same length as input tags
+      if (folders.length !== 1 || returnTags.length !== toUpdate.tags.length) {
+        const err = new Error('We could not find the specified folder or tags'); 
+        err.status = 400;
+        return next(err);
+      }
+      return Note.findOneAndUpdate({$and: [{_id: id}, {userId}]}, toUpdate, { new: true });
+    })
     .then(result => {
       if (result) {
         res.json(result);

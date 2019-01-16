@@ -40,7 +40,7 @@ router.get('/:id', (req, res, next) => {
   Tag.find({$and: [{_id: id}, {userId}]})
     .then(result => {
       if (result) {
-        res.json(result);
+        res.json(result[0]);
       } else {
         next();
       }
