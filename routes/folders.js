@@ -37,7 +37,7 @@ router.get('/:id', (req, res, next) => {
     return next(err);
   }
 
-  Folder.findById({_id: id, userId})
+  Folder.find({$and: [{_id: id}, {userId}]})
     .then(result => {
       if (result) {
         res.json(result);
