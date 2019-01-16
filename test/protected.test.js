@@ -49,11 +49,18 @@ describe('Protected endpoint', function () {
   describe('GET /api/notes', function() {
     it('should reject requests that do not provide credentials', function() {
       let res;
-      return chai.request(app).get('/api/notes')
-        .then(_res => {
-          res = _res;
-          expect(res).to.have.status(401);
-          expect(res.body.message).to.equal('Unauthorized');
+      return Promise.all([
+        chai.request(app).get('/api/notes'),
+        chai.request(app).get('/api/folders'),
+        chai.request(app).get('/api/tags'),
+      ])
+        .then(([notes, folders, tags]) => {
+          let notesText = JSON.parse(notes.res.text);
+          let foldersText = JSON.parse(folders.res.text);
+          let tagsText = JSON.parse(tags.res.text);
+          expect(notesText.message).to.equal('Unauthorized');
+          expect(foldersText.message).to.equal('Unauthorized');
+          expect(tagsText.message).to.equal('Unauthorized');
         });
     });
 
