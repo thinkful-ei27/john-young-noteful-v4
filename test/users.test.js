@@ -1,123 +1,231 @@
 'use strict';
 
-// Require all of our modules
+const app = require('../server');
 const chai = require('chai');
 const chaiHttp = require('chai-http');
 const mongoose = require('mongoose');
-const express = require('express');
 
-const app = require('../server');
-const Tag = require('../models/tag');
-const Note = require('../models/note');
-const Folder = require('../models/folder');
-const { notes, tags, folders } = require('../db/data');
 const { TEST_MONGODB_URI } = require('../config');
 
-chai.use(chaiHttp);
+const User = require('../models/user');
+
 const expect = chai.expect;
 
-describe('Noteful app - Users', function() {
-  before(function() {
-    return mongoose.connect(TEST_MONGODB_URI, {useNewUrlParser: true})
-      .then(() => mongoose.connection.db.dropDatabase());
+chai.use(chaiHttp);
+
+describe('Noteful API - Users', function () {
+  const username = 'exampleUser';
+  const password = 'examplePass';
+  const fullname = 'Example User';
+  const fullUser = {username, password, fullname};
+
+  before(function () {
+    return mongoose.connect(TEST_MONGODB_URI, { useNewUrlParser: true, useCreateIndex : true })
+      .then(() => User.deleteMany());
   });
 
-  beforeEach(function() {
-    return Promise.all([
-      Note.insertMany(notes),
-      Folder.insertMany(folders),
-      Tag.insertMany(tags)
-    ]);
+  beforeEach(function () {
+    return User.createIndexes();
   });
 
   afterEach(function () {
-    return mongoose.connection.db.dropDatabase();
+    return User.deleteMany();
   });
 
   after(function () {
     return mongoose.disconnect();
   });
 
-  describe('POST /api/users', function() {
-    it('should create a new user in the database and return the correct results', function() {
-      const newUser = {
-        username: 'afrequentuser',
-        password: 'password'
-      };
-      let body;
+  describe('POST /api/users', function () {
 
-      return chai.request(app)
+    it('Should create a new user', function () {
+      let res;
+      return chai
+        .request(app)
         .post('/api/users')
-        .send(newUser)
-        .then(function(res) {
-          body = res.body;
+        .send({ username, password, fullname })
+        .then(_res => {
+          res = _res;
           expect(res).to.have.status(201);
-          expect(body).to.have.all.keys('id', 'username');
-        });
-    });
-    
-    it('should return a 422 if missing a field', function() {
-      const newItem = {
-        username: 'testUser'
-      };
-      let body;
-
-      return chai.request(app)
-        .post('/api/users')
-        .send(newItem)
-        .then(function(res) {
-          body = res.body;
-          expect(res).to.have.status(422);
-          expect(body.message).to.equal('Missing field in body');
-        });
-    });
-  });
-
-  describe('POST /api/login', function() {
-    it('should return user info if successfully in database', function() {
-      const newUser = {
-        username: 'aNewUser',
-        fullname: 'Johnny Fullname',
-        password: 'password'
-      };
-      let body;
-      
-      return chai.request(app)
-        .post('/api/users')
-        .send(newUser)
-        .then(function(res) {
-          return chai.request(app)
-            .post('/api/login')
-            .send(newUser);
+          expect(res.body).to.be.an('object');
+          expect(res.body).to.have.keys('id', 'username', 'fullname');
+          expect(res.body.id).to.exist;
+          expect(res.body.username).to.equal(username);
+          expect(res.body.fullname).to.equal(fullname);
+          return User.findOne({ username });
         })
-        .then((res) => {
-          body = res.body;
-          let { username, fullname } = body;
-          expect(res).to.have.status(200);
-          expect(body).to.have.all.keys('username', 'fullname', 'id');
-          expect(username).to.equal(newUser.username);
-          expect(fullname).to.equal(newUser.fullname);
+        .then(user => {
+          expect(user).to.exist;
+          expect(user.id).to.equal(res.body.id);
+          expect(user.fullname).to.equal(fullname);
+          return user.validatePassword(password);
+        })
+        .then(isValid => {
+          expect(isValid).to.be.true;
         });
     });
 
-    it('should return AuthenticationError if wrong username or password', function() {
-      const login = {
-        username: 'johnnysalt',
-        password: 'aclearlywrongpassword'
-      };
-      let body;
-
-      return chai.request(app)
-        .post('/api/login')
-        .send(login)
-        .then(function(res) {
-          body = res.body;
-          let { name, message } = body;
-          expect(res).to.have.status(401);
-          expect(name).to.equal('AuthenticationError');
-          expect(message).to.equal('Unauthorized');
+    it('Should reject users with missing username', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      delete userCopy.username;
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Missing field in body');
         });
     });
+    it('Should reject users with missing password', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      delete userCopy.password;
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Missing field in body');
+        });
+    });
+    it('Should reject users with non-string username', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      userCopy.username = 56;
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Incorrect field type: expected string');
+        });
+    });
+    it('Should reject users with non-string password', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      userCopy.password = 56;
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Incorrect field type: expected string');
+        });
+    });
+    it('Should reject users with non-trimmed username', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      userCopy.username = ' thejohnnysalter';
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Cannot start or end with whitespace');
+        });
+    });
+    it('Should reject users with non-trimmed password', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      userCopy.password = ' thejohnnysalter';
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Cannot start or end with whitespace');
+        });
+    });
+    it('Should reject users with empty username', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      userCopy.username = '';
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Must be at least 2 characters long');
+        });
+    });
+    it('Should reject users with password less than 8 characters', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      userCopy.password = 'less';
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Must be at least 8 characters long');
+        });
+    });
+    it('Should reject users with password greater than 72 characters', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      userCopy.password = 'asuperridiculouslylongpasswordtotestpasswordlengthandithinkthatthisshouldbelongenough';
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(422);
+          expect(res.body.message).to.equal('Wow, what a secure password! However, passwords must be at most 72 characters long');
+        });
+    });
+    it('Should reject users with duplicate username', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          return chai
+            .request(app)
+            .post('/api/users')
+            .send(userCopy);
+        })
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(400);
+          expect(res.body.message).to.equal('The username already exists');
+        });
+    });
+    it('Should trim fullname', function() {
+      let res;
+      let userCopy = Object.assign({}, fullUser);
+      userCopy.fullname = ' Johnny Trim';
+      return chai
+        .request(app)
+        .post('/api/users')
+        .send(userCopy)
+        .then(_res => {
+          res = _res;
+          expect(res).to.have.status(201);
+          expect(res.body.fullname).to.equal('Johnny Trim');
+        });
+    });
+
   });
 
 });

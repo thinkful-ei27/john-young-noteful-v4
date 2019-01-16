@@ -22,7 +22,7 @@ router.post('/', (req, res, next) => {
 
   const stringFields = ['username', 'password', 'fullname'];
   const nonStringField = stringFields.find(field => {
-    field in req.body && typeof req.body[field] !== 'string';
+    return field in req.body && typeof req.body[field] !== 'string';
   });
 
   if (nonStringField) {
@@ -33,7 +33,7 @@ router.post('/', (req, res, next) => {
 
   const explicitlyTrimmedFields = ['username', 'password'];
   const nonTrimmedField = explicitlyTrimmedFields.find(field => {
-    req.body[field].trim() !== req.body[field];
+    return req.body[field].trim() !== req.body[field];
   });
 
   if (nonTrimmedField) {
@@ -69,7 +69,7 @@ router.post('/', (req, res, next) => {
       message: tooSmallField
         ? `Must be at least ${sizedFields[tooSmallField]
           .min} characters long`
-        : `Must be at most ${sizedFields[tooLargeField]
+        : `Wow, what a secure password! However, passwords must be at most ${sizedFields[tooLargeField]
           .max} characters long`,
       location: tooSmallField || tooLargeField
     });
@@ -78,10 +78,11 @@ router.post('/', (req, res, next) => {
   User
     .hashPassword(password)
     .then(digest => {
+      const trimmedFullname = fullname.trim();
       const newUser = {
         username,
         password: digest,
-        fullname
+        fullname: trimmedFullname
       };
       return User.create(newUser);
     })
