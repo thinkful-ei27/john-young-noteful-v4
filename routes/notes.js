@@ -91,6 +91,11 @@ router.post('/', (req, res, next) => {
   }
 
   if (tags) {
+    if (Array.isArray(tags) !== true) {
+      const err = new Error('The tags property must be an array');
+      err.status = 400;
+      return next(err);
+    }
     const badIds = tags.filter((tag) => !mongoose.Types.ObjectId.isValid(tag));
     if (badIds.length) {
       const err = new Error('The `tags` array contains an invalid `id`');
@@ -115,12 +120,17 @@ router.post('/', (req, res, next) => {
     .then(([folders, returnTags]) => {
       // console.log(`Folders are ${folders}, Tags are ${returnTags} but length is ${tags.length}`);
       // We test if folders returns a folder, and returned tags is the same length as input tags
-      if (folders.length !== 1 || returnTags.length !== tags.length) {
-        const err = new Error('We could not find the specified folder or tags'); 
+      if (folders.length !== 1) {
+        const err = new Error('The folderId is not valid');
         err.status = 400;
         return next(err);
+      } else if (returnTags.length !== tags.length) {
+        const err = new Error('The tags array contains an invalid id'); 
+        err.status = 400;
+        return next(err);
+      } else {
+        return Note.create(newNote);
       }
-      return Note.create(newNote);
     })
     .then(result => {
       res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
@@ -164,6 +174,11 @@ router.put('/:id', (req, res, next) => {
   }
 
   if (toUpdate.tags) {
+    if (Array.isArray(toUpdate.tags) !== true) {
+      const err = new Error('The tags property must be an array');
+      err.status = 400;
+      return next(err);
+    }
     const badIds = toUpdate.tags.filter((tag) => !mongoose.Types.ObjectId.isValid(tag));
     if (badIds.length) {
       const err = new Error('The `tags` array contains an invalid `id`');
@@ -187,8 +202,12 @@ router.put('/:id', (req, res, next) => {
     .then(([folders, returnTags]) => {
       // console.log(`Folders are ${folders}, Tags are ${returnTags} but length is ${tags.length}`);
       // We test if folders returns a folder, and returned tags is the same length as input tags
-      if (folders.length !== 1 || returnTags.length !== toUpdate.tags.length) {
-        const err = new Error('We could not find the specified folder or tags'); 
+      if (folders.length !== 1) {
+        const err = new Error('The folderId is not valid');
+        err.status = 400;
+        return next(err);
+      } else if (returnTags.length !== toUpdate.tags.length) {
+        const err = new Error('The tags array contains an invalid id'); 
         err.status = 400;
         return next(err);
       }
