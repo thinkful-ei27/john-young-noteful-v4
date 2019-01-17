@@ -1,4 +1,4 @@
 Noteful App
 ============================
 
-The final countdown
+The final countdown!
