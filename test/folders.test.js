@@ -18,7 +18,7 @@ chai.use(chaiHttp);
 const expect = chai.expect;
 const sandbox = sinon.createSandbox();
 
-describe.skip('Noteful API - Folders', function () {
+describe('Noteful API - Folders', function () {
   let token;
   let user;
 
