@@ -32,7 +32,7 @@ mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useCreateIndex : true })
     ]);
   })
   .then(results => {
-    console.log('Inserted', results);
+    console.log('Inserted results with no errors');
     console.info('Disconnecting...');
     return mongoose.disconnect();
   })

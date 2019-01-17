@@ -39,7 +39,11 @@ router.get('/:id', (req, res, next) => {
 
   Folder.find({$and: [{_id: id}, {userId}]})
     .then(result => {
-      if (result) {
+      if (result.length === 0) {
+        const err = new Error('Folder not found');
+        err.status = 404;
+        return next(err);
+      } else if (result) {
         res.json(result[0]);
       } else {
         next();
